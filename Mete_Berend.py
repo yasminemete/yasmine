@@ -1,6 +1,7 @@
 import copy
 import math
 from typing import List
+
 import interfaces
 from interfaces import *
 
@@ -95,7 +96,7 @@ class yasmine_doriaStrategy(interfaces.Strategy):
         return column
 
     def minimax(self, board: Board, token: Token, depth: int, alpha: float, beta: float,
-                maximizing_player: bool) -> int:
+                maximizing_player: bool) -> tuple[float, None]:
         """
         Implémentation de l'algorithme minimax avec élagage alpha-beta
         """

@@ -1,63 +1,114 @@
+import copy
 import math
 from typing import List
 import interfaces
-from interfaces import Board
+from interfaces import *
 
 
 def get_playable_columns(board: interfaces.Board) -> List[int]:
+    """
+    Permet de retourner une liste des colonnes jouables
+    """
     return [col for col in range(board.width) if board.column(col).count(interfaces.Token.EMPTY) > 0]
 
 
 def evaluate_position(board: interfaces.Board, player_token: interfaces.Token) -> float:
-    return 0
+    """
+    Évalue la position actuelle du jeu
+    """
+    score = 0
+    opponent = opponent_token(player_token)
 
-
-def is_board_full(board: interfaces.Board) -> bool:
+    # Check pour un coup gagnant pour le joueur
     for col in range(board.width):
-        if board.column(col).count(interfaces.Token.EMPTY) > 0:
-            return False
-    return True
+        temp_board = copy.deepcopy(board)
+        if temp_board.column(col).count(interfaces.Token.EMPTY) > 0:
+            temp_board.play(col, player_token)
+            if winning_line(temp_board):
+                score += 100
+
+    # Check pour un coup gagnant pour l'adversaire
+    for col in range(board.width):
+        temp_board = copy.deepcopy(board)
+        if temp_board.column(col).count(interfaces.Token.EMPTY) > 0:
+            temp_board.play(col, opponent)
+            if winning_line(temp_board):
+                score -= 100
+
+    return score
 
 
-def next_open_row(board, col):
-    for row in range(board.height - 1, -1, -1):
-        if board.box(row, col) == interfaces.Token.EMPTY:
-            return row
-    return -1
+def opponent_token(your_token: interfaces.Token) -> interfaces.Token:
+    """
+    Retourne le jeton de l'adversaire
+    """
+    return interfaces.Token.RED if your_token == interfaces.Token.YELLOW else interfaces.Token.YELLOW
 
 
-def copy_board(board):
-    copied_board: Board = interfaces.Board(board.height, board.width, board.to_win)
-    for i in range(board.height):
-        for j in range(board.width):
-            copied_board.__board[i][j] = board.__board[i][j]
-    return copied_board
+def winning_line(board: interfaces.Board) -> bool:
+    """
+    Vérifie s'il y a un alignement possible de 4 jetons.
+    """
+    # Vérifie les lignes horizontales
+    for row in range(board.height):
+        for col in range(board.width - 3):
+            if all(board.box(row, col + i) != interfaces.Token.EMPTY for i in range(4)):
+                if len(set(board.box(row, col + i) for i in range(4))) == 1:
+                    return True
+    # Vérifie les colonnes verticales
+    for col in range(board.width):
+        for row in range(board.height - 3):
+            if all(board.box(row + i, col) != interfaces.Token.EMPTY for i in range(4)):
+                if len(set(board.box(row + i, col) for i in range(4))) == 1:
+                    return True
+    # Vérifie les diagonales
+    for row in range(board.height - 3):
+        for col in range(board.width - 3):
+            if all(board.box(row + i, col + i) != interfaces.Token.EMPTY for i in range(4)):
+                if len(set(board.box(row + i, col + i) for i in range(4))) == 1:
+                    return True
+    # Vérifie les autres diagonales
+    for row in range(board.height - 3):
+        for col in range(3, board.width):
+            if all(board.box(row + i, col - i) != interfaces.Token.EMPTY for i in range(4)):
+                if len(set(board.box(row + i, col - i) for i in range(4))) == 1:
+                    return True
+    return False
 
 
-class yasminedoriaStrategy(interfaces.Strategy):
+class yasmine_doriaStrategy(interfaces.Strategy):
+    """
+    Strategie qui joue un coup gagnant possible ou bloque un coup gagnant adverse, si possible
+    """
+    depth = 4
 
-    @property
     def authors(self) -> str:
         return "Mete-Berend"
 
     def play(self, current_board: interfaces.Board, your_token: interfaces.Token) -> None:
-        depth = 4
-        _, column = self.minimax(current_board, depth, your_token, -math.inf, math.inf, True)
+        """
+        Retourne la colonne à jouer en appelant l'algorithme minimax
+        """
+        _, column = self.minimax(current_board, your_token, depth=yasmine_doriaStrategy.depth, alpha=-math.inf,
+                                 beta=math.inf, maximizing_player=True)
+
         return column
 
-    def minimax(self, board: interfaces.Board, depth: int, player_token: str, alpha: float, beta: float,
-                maximizing_player: bool) -> tuple[float, None]:
+    def minimax(self, board: Board, token: Token, depth: int, alpha: float, beta: float,
+                maximizing_player: bool) -> int:
+        """
+        Implémentation de l'algorithme minimax avec élagage alpha-beta
+        """
         if depth == 0 or all(board.column(col).count(interfaces.Token.EMPTY) == 0 for col in range(board.width)):
-            return evaluate_position(board, player_token), None
+            return evaluate_position(board, token), None
 
         if maximizing_player:
             max_eval = -math.inf
             best_column = None
             for col in get_playable_columns(board):
-                row = next_open_row(board, col)
-                temp_board = board.copy()
-                temp_board.play(col, player_token)  # Utiliser la méthode play au lieu de drop_token
-                eval_val, _ = self.minimax(temp_board, depth - 1, player_token, alpha, beta, False)
+                temp_board = copy.deepcopy(board)
+                temp_board.play(col, token)  # Utiliser la méthode play au lieu de drop_token
+                eval_val, _ = self.minimax(temp_board, token, depth - 1, alpha, beta, False)
                 if eval_val > max_eval:
                     max_eval = eval_val
                     best_column = col
@@ -69,10 +120,9 @@ class yasminedoriaStrategy(interfaces.Strategy):
             min_eval = math.inf
             best_column = None
             for col in get_playable_columns(board):
-                row = next_open_row(board, col)
-                temp_board = copy_board(board)
-                temp_board.play(col, player_token.opponent())  # Utiliser le joueur adverse
-                eval_val, _ = self.minimax(temp_board, depth - 1, player_token, alpha, beta, True)
+                temp_board = copy.deepcopy(board)
+                temp_board.play(col, opponent_token(token))  # Utiliser le joueur adverse
+                eval_val, _ = self.minimax(temp_board, token, depth - 1, alpha, beta, True)
                 if eval_val < min_eval:
                     min_eval = eval_val
                     best_column = col
@@ -80,47 +130,3 @@ class yasminedoriaStrategy(interfaces.Strategy):
                 if beta <= alpha:
                     break
             return min_eval, best_column
-
-
-def play_connect_four():
-    height = 6
-    width = 7
-    to_win = 4
-    current_board = interfaces.Board(height, width, to_win)
-    player1_token = interfaces.Token.RED
-    player2_token = interfaces.Token.YELLOW
-    current_player = player1_token
-
-    strategies = [yasminedoriaStrategy(), None]  # Remplacez par vos propres stratégies
-
-    while True:
-        print(current_board)
-
-        strategy = strategies[int(current_player == player2_token)]
-        if strategy:  # Si c'est l'IA qui joue
-            column = strategy.play(current_board, current_player)
-            current_board.play(column, current_player)
-        else:  # Si c'est le joueur humain qui joue
-            while True:
-                try:
-                    column = int(input(f"Player {current_player}, choose a column (1-{width}): "))
-                    current_board.play(column, current_player)
-                    break
-                except (ValueError, interfaces.IllegalMove):
-                    print("Invalid input or column is full. Try again.")
-
-        if not any(current_board.box(row, col) == current_player for row in range(height) for col in range(width)
-                   for dr, dc in ((0, 1), (1, 0), (1, 1), (-1, 1))
-                   if 0 <= row + dr * (to_win - 1) < height and 0 <= col + dc * (to_win - 1) < width and all(
-            current_board.box(row + k * dr, col + k * dc) == current_player for k in range(to_win))):
-            current_player = player2_token if current_player == player1_token else player1_token
-            continue
-
-        print(current_board)
-        print(f"Player {current_player} wins!")
-        break
-
-
-# Exécution du jeu Puissance 4
-if __name__ == "__main__":
-    play_connect_four()

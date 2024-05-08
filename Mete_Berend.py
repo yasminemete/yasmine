@@ -1,7 +1,6 @@
 import copy
 import math
 from typing import List
-
 import interfaces
 from interfaces import *
 
@@ -77,11 +76,26 @@ def winning_line(board: interfaces.Board) -> bool:
     return False
 
 
+def victoire(board: interfaces.Board, token: interfaces.Token) -> int:
+    for col in get_playable_columns(board):
+        board_copy = copy.deepcopy(board)
+        board_copy.play(col, token)
+        if winning_line(board_copy):
+            return col
+    return -1
+
+
+def defaite(board: interfaces.Board, token: interfaces.Token) -> int:
+    for col in get_playable_columns(board):
+        board_copy = copy.deepcopy(board)
+        board_copy.play(col, opponent_token(token))
+        if winning_line(board_copy):
+            return col
+    return -1
+
+
 class yasmine_doriaStrategy(interfaces.Strategy):
-    """
-    Strategie qui joue un coup gagnant possible ou bloque un coup gagnant adverse, si possible
-    """
-    depth = 4
+    depth = 3
 
     def authors(self) -> str:
         return "Mete-Berend"
@@ -90,6 +104,14 @@ class yasmine_doriaStrategy(interfaces.Strategy):
         """
         Retourne la colonne à jouer en appelant l'algorithme minimax
         """
+        column = victoire(current_board, your_token)
+        if column != -1:
+            return column
+
+        column = defaite(current_board, your_token)
+        if column != -1:
+            return column
+
         _, column = self.minimax(current_board, your_token, depth=yasmine_doriaStrategy.depth, alpha=-math.inf,
                                  beta=math.inf, maximizing_player=True)
 
@@ -108,7 +130,7 @@ class yasmine_doriaStrategy(interfaces.Strategy):
             best_column = None
             for col in get_playable_columns(board):
                 temp_board = copy.deepcopy(board)
-                temp_board.play(col, token)  # Utiliser la méthode play au lieu de drop_token
+                temp_board.play(col, token)
                 eval_val, _ = self.minimax(temp_board, token, depth - 1, alpha, beta, False)
                 if eval_val > max_eval:
                     max_eval = eval_val
@@ -122,7 +144,7 @@ class yasmine_doriaStrategy(interfaces.Strategy):
             best_column = None
             for col in get_playable_columns(board):
                 temp_board = copy.deepcopy(board)
-                temp_board.play(col, opponent_token(token))  # Utiliser le joueur adverse
+                temp_board.play(col, opponent_token(token))
                 eval_val, _ = self.minimax(temp_board, token, depth - 1, alpha, beta, True)
                 if eval_val < min_eval:
                     min_eval = eval_val

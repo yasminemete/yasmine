@@ -100,7 +100,7 @@ class yasmine_doriaStrategy(interfaces.Strategy):
     def authors(self) -> str:
         return "Mete-Berend"
 
-    def play(self, current_board: interfaces.Board, your_token: interfaces.Token) -> None:
+    def play(self, current_board: interfaces.Board, your_token: interfaces.Token) -> int | None:
         """
         Retourne la colonne à jouer en appelant l'algorithme minimax
         """
